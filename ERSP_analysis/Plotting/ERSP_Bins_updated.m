@@ -5,7 +5,7 @@ Summary of function:
 This script plots ERSP scalp map bins of specified widths for all electrodes.
 You need to have a study loaded first.
 
-Written by Vyom
+Written by Vyom Raval
 8/24/2018
 edited 1/9/2019
 %}
