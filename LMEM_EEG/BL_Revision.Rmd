@@ -1,0 +1,182 @@
+---
+title: "BL_Revision"
+author: "JM Schneider"
+date: "4/14/2020"
+output: html_document
+---
+
+## Library Import
+```{r,include=FALSE,echo=FALSE,warning=FALSE}
+#Loading library
+library(ez); library(ggplot2); library(multcomp); library(nlme); library(pastecs); library(reshape)
+library(Hmisc); library (WRS2); library(lme4); library(lmerTest); library(plyr); library(splitstackshape) 
+library(naniar); library(tidyr); library(dplyr); library(memisc); library(psychReport); library(foreign); library(interactions)
+```
+
+## Additional Preset and Working Directory
+```{r}
+rm(list=ls())
+
+# Max print output.
+options(max.print=1e9)
+options(dplyr.print_max = 1e10)
+
+setwd("/Users/julieschneider/Julie_Personal/Projects/WLdevdiff/")
+df_ast=read.csv('R_Data/BL_Ast.csv')
+df_overall=read.csv('R_Data/BL_Revisions.csv')
+```
+
+## Combine dataframes
+```{r}
+myvars <- c("Subject.Code","PPVT.Raw.Score")
+df_ast_subset <- df_ast[myvars]
+df_ast_subset <-rename(df_ast_subset, c("Subject.Code"="Participant"))
+
+#merge two dataframes based on subject ID
+df_overall <- merge(df_overall,df_ast_subset,by="Participant")
+write.csv(df_overall , "BL_Revision_Clean.csv")
+```
+## Make Factors into Numeric Values
+```{r}
+df_overall$Thet_LP<-as.numeric(df_overall$Thet_LP)
+df_overall$Thet_RP<-as.numeric(df_overall$Thet_RP)
+df_overall$Theta_F<-as.numeric(df_overall$Theta_F)
+df_overall$Beta_Glob_2on_S3<-as.numeric(df_overall$Beta_Glob_2on_S3)
+df_overall$Alp_3m1<-as.numeric(df_overall$Alp_3m1)
+df_overall$GamGl_3m1<-as.numeric(df_overall$GamGl_3m1)
+df_overall$age<-as.numeric(df_overall$age)
+df_overall$Participant<-as.numeric(df_overall$Participant)
+df_overall$PPVT.Raw.Score<-as.numeric(df_overall$PPVT.Raw.Score)
+df_overall$GortCo<-as.numeric(df_overall$GortCo)
+df_overall$DigSpa<-as.numeric(df_overall$DigSpa)
+```
+
+### Theta LMEM:Compared two models, one with Reading, one without. The model with Reading is a better fit (Chi-square = 7.308523 (df= 1 ), p = 0.006862832), with theta moderately predicting vocabulary (p = 0.08)
+```{r}
+fm1 <- lmer(PPVT.Raw.Score ~ 1 + Theta_F + Thet_LP + Thet_RP + age + (1|age), data = df_overall)
+fm2 <- lmer(PPVT.Raw.Score ~ 1 + Theta_F + Thet_LP + Thet_RP + GortCo + age + (1|age), data = df_overall)
+
+AIC(fm1,fm2)
+dev0 <- -2*logLik(fm1) # deviance simpler model
+dev1 <- -2*logLik(fm2) # deviance complex model
+devdiff <- as.numeric(dev0-dev1) # difference in deviances
+dfdiff <- attr(dev1,"df")-attr(dev0,"df") # difference in params (using dfs)
+cat('Chi-square =', devdiff, '(df=', dfdiff,'), p =', 
+  pchisq(devdiff,dfdiff,lower.tail=FALSE))
+
+summary(fm2)
+```
+### Plot Theta Effect: Moderate effect of Theta on Vocabulary (note: this graph does NOT account for other effects that are factored out in the LMER)
+```{r}
+plot(df_overall$PPVT.Raw.Score, df_overall$Theta_F, main="Frontal Theta and Vocabulary",
+   xlab="Vocabulary ", ylab="Theta Amplitude ", pch=19)
+```
+### Plot Theta Effect: There is an interaction between age and frontal theta predicting vocabulary ( p = .04)
+```{r}
+interact_plot(fm1, pred = Theta_F, modx = age, plot.points = TRUE)
+```
+
+### Investigating interaction between Theta and Vocabulary on Word Learning
+```{r}
+fm1 <- lmer(MAve_A ~ 1 + Theta_F*PPVT.Raw.Score + age + (1|age), data = df_overall)
+fm2 <- lmer(MAve_A ~ 1 + Thet_RP*PPVT.Raw.Score + age + (1|age), data = df_overall)
+fm3 <- lmer(MAve_A ~ 1 + Thet_LP*PPVT.Raw.Score + age + (1|age), data = df_overall)
+
+AIC(fm1,fm2,fm3)
+
+anova(fm1, fm2)
+
+summary(fm1)
+summary(fm2)
+summary(fm3)
+```
+### Investigating interaction between Theta and Vocabulary on Word Learning
+```{r}
+fm1 <- lmer(MAve_A ~ 1 + Theta_F*age + (1|age), data = df_overall)
+fm2 <- lmer(MAve_A ~ 1 + Thet_RP*age + (1|age), data = df_overall)
+fm3 <- lmer(MAve_A ~ 1 + Thet_LP*age + (1|age), data = df_overall)
+
+AIC(fm1,fm2,fm3)
+
+anova(fm1, fm2)
+
+summary(fm1)
+summary(fm2)
+summary(fm3)
+```
+
+### Omnibus LMEM: No significant patterns, best fit model is model 1
+```{r}
+fm1 <- lmer(GortCo ~ 1 + Alp_3m1 + Beta_Glob_2on_S3 + GamGl_3m1 + age + (1|age), data = df_overall)
+fm2 <- lmer(GortCo ~ 1 + Alp_3m1 + Beta_Glob_2on_S3 + GamGl_3m1 + PPVT.Raw.Score + age + (1|age), data = df_overall)
+
+AIC(fm1,fm2)
+dev0 <- -2*logLik(fm1) # deviance simpler model
+dev1 <- -2*logLik(fm2) # deviance complex model
+devdiff <- as.numeric(dev0-dev1) # difference in deviances
+dfdiff <- attr(dev1,"df")-attr(dev0,"df") # difference in params (using dfs)
+cat('Chi-square =', devdiff, '(df=', dfdiff,'), p =', 
+  pchisq(devdiff,dfdiff,lower.tail=FALSE))
+
+summary(fm1)
+```
+### Word Learning LMEMs: Alpha interacts with reading comprehension to predict WL ability (p = 0.0338), there is also a main effect of alpha (p = 0.0141). Beta also predicts WL ability (p = 0.0249). Gamma does not predict WL ability. ** All when controlling for age. 
+```{r}
+alpha.model <- lmer(MAve_A ~ 1 + Alp_3m1*GortCo + age + (1|age), data = df_overall)
+beta.model <- lmer(MAve_A ~ 1 + Beta_Glob_2on_S3*GortCo + age + (1|age), data = df_overall)
+gamma.model <- lmer(MAve_A ~ 1 + GamGl_3m1*GortCo + age + (1|age), data = df_overall)
+
+AIC(alpha.model,beta.model,gamma.model)
+
+anova(alpha.model, beta.model)
+
+summary(alpha.model)
+summary(beta.model)
+summary(gamma.model)
+```
+```{r}
+interact_plot(alpha.model, pred = Alp_3m1, modx = GortCo, plot.points = TRUE)
+```
+### LMEM of Alpha, Beta or Gamma individually predicting Reading Comprehension. No significant results. 
+```{r}
+fm1 <- lmer(GortCo ~ 1 + Alp_3m1 + age + (1|age), data = df_overall)
+fm2 <- lmer(GortCo ~ 1 + Beta_Glob_2on_S3 + age + (1|age), data = df_overall)
+fm3 <- lmer(GortCo ~ 1 + GamGl_3m1 + age + (1|age), data = df_overall)
+
+AIC(fm1,fm2,fm3)
+
+anova(fm1, fm2)
+
+summary(fm1)
+summary(fm2)
+summary(fm3)
+```
+
+### LMEM with Working memory interactions
+```{r}
+alpha.model <- lmer(MAve_A ~ 1 + Alp_3m1*DigSpa + age + (1|age), data = df_overall)
+beta.model <- lmer(MAve_A ~ 1 + Beta_Glob_2on_S3*DigSpa + age + (1|age), data = df_overall)
+gamma.model <- lmer(MAve_A ~ 1 + GamGl_3m1*DigSpa + age + (1|age), data = df_overall)
+
+AIC(alpha.model,beta.model,gamma.model)
+
+anova(alpha.model, beta.model)
+
+summary(alpha.model)
+summary(beta.model)
+summary(gamma.model)
+```
+### LMEM with Working memory interactions
+```{r}
+alpha.model <- lmer(MAve_A ~ 1 + Alp_3m1*PPVT.Raw.Score + age + (1|age), data = df_overall)
+beta.model <- lmer(MAve_A ~ 1 + Beta_Glob_2on_S3*PPVT.Raw.Score + age + (1|age), data = df_overall)
+gamma.model <- lmer(MAve_A ~ 1 + GamGl_3m1*PPVT.Raw.Score + age + (1|age), data = df_overall)
+
+AIC(alpha.model,beta.model,gamma.model)
+
+anova(alpha.model, beta.model)
+
+summary(alpha.model)
+summary(beta.model)
+summary(gamma.model)
+```
