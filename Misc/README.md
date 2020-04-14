@@ -7,3 +7,6 @@ The input and output folder names can be changed for corresponding directories o
 ## Load Datasets script
 This script pulls subjects from the example subjects.xlsx file and loads their corresponding EEG dataset. The name of the dataset and corresponding directory location must be modified. 
 If a subject is wrong, the 1 (of 1:length) can be modified to change where you are in the list of subjects in the excel file. 
+
+## matlab_cp_rename.sh
+This is a bash script that takes current ERP files and renames them with each subject's unique identifier (as defined by the subject.list.txt file). It then moves those files to a single folder making Mass Univariate Analyses easier.
