@@ -10,9 +10,25 @@ output: html_document
 #Loading library
 library(ez); library(ggplot2); library(multcomp); library(nlme); library(pastecs); library(reshape)
 library(Hmisc); library (WRS2); library(lme4); library(lmerTest); library(plyr); library(splitstackshape) 
-library(naniar); library(tidyr); library(dplyr); library(memisc); library(psychReport); library(foreign); library(interactions)
+library(naniar); library(tidyr); library(dplyr); library(memisc); library(psychReport); library(foreign); library(interactions); library(corrplot)
 ```
-
+## Flatten MAtrix Function
+```{r,include=FALSE,echo=FALSE,warning=FALSE}
+# ++++++++++++++++++++++++++++
+# flattenCorrMatrix
+# ++++++++++++++++++++++++++++
+# cormat : matrix of the correlation coefficients
+# pmat : matrix of the correlation p-values
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+  )
+}
+```
 ## Additional Preset and Working Directory
 ```{r}
 rm(list=ls())
@@ -21,36 +37,198 @@ rm(list=ls())
 options(max.print=1e9)
 options(dplyr.print_max = 1e10)
 
-setwd("/Users/julieschneider/Julie_Personal/Projects/WLdevdiff/")
-df_ast=read.csv('R_Data/BL_Ast.csv')
-df_overall=read.csv('R_Data/BL_Revisions.csv')
+setwd("/Users/julieschneider/Julie_Personal/Projects/WLdevdiff/R_Data/")
+df_ast=read.csv('BL_Ast.csv')
+df_MP=read.csv('BL_MP.csv')
+df_extract=read.csv('Data_extract_042720.csv')
+df_age=read.csv('BL_Revisions.csv')
 ```
 
 ## Combine dataframes
 ```{r}
-myvars <- c("Subject.Code","PPVT.Raw.Score")
-df_ast_subset <- df_ast[myvars]
+df_ast_subset <- df_ast[c(1:15)]
 df_ast_subset <-rename(df_ast_subset, c("Subject.Code"="Participant"))
 
+df_age_subset <- df_age[c(1:4)]
+
 #merge two dataframes based on subject ID
-df_overall <- merge(df_overall,df_ast_subset,by="Participant")
-write.csv(df_overall , "BL_Revision_Clean.csv")
+df_partial <- merge(df_MP,df_extract,by="Participant")
+df_partial_2 <- merge(df_partial,df_age,by="Participant")
+df_overall <- merge(df_partial_2,df_ast_subset,by="Participant")
+write.csv(df_overall , "BL_Revision_New_Extract.csv")
 ```
+
 ## Make Factors into Numeric Values
 ```{r}
-df_overall$Thet_LP<-as.numeric(df_overall$Thet_LP)
-df_overall$Thet_RP<-as.numeric(df_overall$Thet_RP)
-df_overall$Theta_F<-as.numeric(df_overall$Theta_F)
-df_overall$Beta_Glob_2on_S3<-as.numeric(df_overall$Beta_Glob_2on_S3)
-df_overall$Alp_3m1<-as.numeric(df_overall$Alp_3m1)
-df_overall$GamGl_3m1<-as.numeric(df_overall$GamGl_3m1)
+df_overall$Theta<-as.numeric(df_overall$Theta)
+df_overall$Beta<-as.numeric(df_overall$Beta)
+df_overall$Alpha<-as.numeric(df_overall$Alpha)
+df_overall$Gamma<-as.numeric(df_overall$Gamma)
 df_overall$age<-as.numeric(df_overall$age)
 df_overall$Participant<-as.numeric(df_overall$Participant)
 df_overall$PPVT.Raw.Score<-as.numeric(df_overall$PPVT.Raw.Score)
 df_overall$GortCo<-as.numeric(df_overall$GortCo)
 df_overall$DigSpa<-as.numeric(df_overall$DigSpa)
+df_overall$MP_PC<-as.numeric(df_overall$MP_PC)
+df_overall$PPVT<-as.numeric(df_overall$PPVT)
+df_overall$MatEd5<-as.numeric(df_overall$MatEd5)
+
 ```
 
+## Establish Groups
+```{r}
+children <- df_overall[which(df_overall$AgeGroup == 1),]
+adolescents <- df_overall[which(df_overall$AgeGroup == 2),]
+```
+
+## Correlations within each group
+```{r}
+myvars <- c("MP_PC","Alpha","Theta","Beta","PPVT","GortCo","DigSpa")
+child_corr_subset <- children[myvars]
+adol_corr_subset <- adolescents[myvars]
+child_res <-cor(child_corr_subset)
+child_res2<-rcorr(as.matrix(child_corr_subset))
+#flattenCorrMatrix(child_res2$r, child_res2$P)
+corrplot(child_res2$r, type="upper", order="hclust", 
+         p.mat = child_res2$P, sig.level = 0.05, insig = "blank")
+```
+## Overall LMEM no cogntive variables
+```{r}
+child.model <- glm(MP_PC ~ 1 + Theta + Beta + Alpha, data = children)
+adol.model <- glm(MP_PC ~ 1 + Theta + Beta + Alpha + Gamma, data = adolescents)
+overall.model <- glm(MP_PC ~ 1 + Theta + Beta + Alpha + Gamma + age, data = df_overall)
+
+summary(child.model)
+summary(adol.model)
+summary(overall.model)
+```
+
+## Theta
+```{r}
+child.theta.model <- glm(MP_PC ~ 1 + Theta*GortCo + Theta*PPVT + Theta*DigSpa + Beta + Alpha + age, data = children)
+adol.theta.model <- glm(MP_PC ~ 1 + Theta*GortCo + Theta*PPVT + Theta*DigSpa + Beta + Alpha + Gamma + age, data = adolescents)
+
+summary(child.theta.model)
+summary(adol.theta.model)
+```
+
+## Alpha
+```{r}
+child.alpha.model <- glm(MP_PC ~ 1 + Alpha*GortCo + Alpha*PPVT + Alpha*DigSpa + Theta + Beta + age, data = children)
+adol.alpha.model <- glm(MP_PC ~ 1 + Alpha*GortCo + Alpha*PPVT + Alpha*DigSpa + Theta + Beta + Gamma + age, data = adolescents)
+
+summary(child.alpha.model)
+summary(adol.alpha.model)
+```
+## Beta
+```{r}
+child.beta.model <- glm(MP_PC ~ 1 + Beta*GortCo + Beta*PPVT + Beta*DigSpa + Theta + Alpha + age, data = children)
+adol.beta.model <- glm(MP_PC ~ 1 + Beta*GortCo + Beta*PPVT + Beta*DigSpa + Theta + Alpha + Gamma + age, data = adolescents)
+
+summary(child.beta.model)
+summary(adol.beta.model)
+```
+
+## Gamma
+```{r}
+adol.gamma.model <- glm(MP_PC ~ 1 + Gamma*GortCo + Gamma*PPVT + Gamma*DigSpa + Theta + Alpha + Beta + age, data = adolescents)
+
+summary(adol.gamma.model)
+```
+## Reading and Word Learning
+```{r}
+alpha.model <- lmer(MP_PC ~ 1 + Alpha*GortCo*age + (1|age), data = children)
+beta.model <- lmer(MP_PC ~ 1 + Beta*GortCo*age + (1|age), data = children)
+theta.model <- lmer(MP_PC ~ 1 + Theta*GortCo*age + (1|age), data = children)
+
+AIC(alpha.model,beta.model,theta.model)
+
+anova(alpha.model, beta.model)
+
+summary(alpha.model)
+summary(beta.model)
+summary(theta.model)
+```
+But in adolescents' alpha interacts with Reading Comprehension to predict WL Performance
+```{r}
+adol.alpha.model <- lmer(MP_PC ~ 1 + Alpha*GortCo*age + (1|age), data = adolescents)
+adol.beta.model <- lmer(MP_PC ~ 1 + Beta*GortCo*age + (1|age), data = adolescents)
+adol.theta.model <- lmer(MP_PC ~ 1 + Theta*GortCo*age + (1|age), data = adolescents)
+adol.gamma.model <- lmer(MP_PC ~ 1 + Gamma*GortCo*age + (1|age), data = adolescents)
+
+AIC(adol.alpha.model,adol.beta.model,adol.theta.model,adol.gamma.model)
+
+anova(adol.alpha.model, adol.beta.model)
+
+summary(adol.alpha.model)
+summary(adol.beta.model)
+summary(adol.theta.model)
+summary(adol.gamma.model)
+```
+
+## Vocabulary and Word Learning
+In younger children, theta interacts with vocabulary to predict WL Performance
+```{r}
+alpha.model <- lmer(MP_PC ~ 1 + Alpha*PPVT*age + (1|age), data = children)
+beta.model <- lmer(MP_PC ~ 1 + Beta*PPVT*age + (1|age), data = children)
+theta.model <- lmer(MP_PC ~ 1 + Theta*PPVT*age + (1|age), data = children)
+
+AIC(alpha.model,beta.model,theta.model)
+
+anova(alpha.model, beta.model)
+
+summary(alpha.model)
+summary(beta.model)
+summary(theta.model)
+```
+
+No significant interactions in adolescents
+```{r}
+adol.alpha.model <- lmer(MP_PC ~ 1 + Alpha*PPVT*age + (1|age), data = adolescents)
+adol.beta.model <- lmer(MP_PC ~ 1 + Beta*PPVT*age + (1|age), data = adolescents)
+adol.theta.model <- lmer(MP_PC ~ 1 + Theta*PPVT*age + (1|age), data = adolescents)
+adol.gamma.model <- lmer(MP_PC ~ 1 + Theta*PPVT*age + (1|age), data = adolescents)
+
+AIC(adol.alpha.model,adol.beta.model,adol.theta.model,adol.gamma.model)
+
+anova(adol.alpha.model, adol.beta.model)
+
+summary(adol.alpha.model)
+summary(adol.beta.model)
+summary(adol.theta.model)
+summary(adol.gamma.model)
+```
+## Working Memory and Word Learning
+```{r}
+alpha.model <- lmer(MP_PC ~ 1 + Alpha*DigSpa*age + (1|age), data = children)
+beta.model <- lmer(MP_PC ~ 1 + Beta*DigSpa*age + (1|age), data = children)
+theta.model <- lmer(MP_PC ~ 1 + Theta*DigSpa*age + (1|age), data = children)
+
+AIC(alpha.model,beta.model,theta.model)
+
+anova(alpha.model, beta.model)
+
+summary(alpha.model)
+summary(beta.model)
+summary(theta.model)
+```
+```{r}
+adol.alpha.model <- lmer(MP_PC ~ 1 + Alpha*DigSpa*age + (1|age), data = adolescents)
+adol.beta.model <- lmer(MP_PC ~ 1 + Beta*DigSpa*age + (1|age), data = adolescents)
+adol.theta.model <- lmer(MP_PC ~ 1 + Theta*DigSpa*age + (1|age), data = adolescents)
+adol.gamma.model <- lmer(MP_PC ~ 1 + Theta*DigSpa*age + (1|age), data = adolescents)
+
+AIC(adol.alpha.model,adol.beta.model,adol.theta.model,adol.gamma.model)
+
+anova(adol.alpha.model, adol.beta.model)
+
+summary(adol.alpha.model)
+summary(adol.beta.model)
+summary(adol.theta.model)
+summary(adol.gamma.model)
+```
+### Old analysis below this line:
+#########################################################################################################
 ### Theta LMEM:Compared two models, one with Reading, one without. The model with Reading is a better fit (Chi-square = 7.308523 (df= 1 ), p = 0.006862832), with theta moderately predicting vocabulary (p = 0.08)
 ```{r}
 fm1 <- lmer(PPVT.Raw.Score ~ 1 + Theta_F + Thet_LP + Thet_RP + age + (1|age), data = df_overall)
