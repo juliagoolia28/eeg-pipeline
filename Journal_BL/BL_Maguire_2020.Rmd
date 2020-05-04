@@ -97,6 +97,8 @@ summary(adol.alpha.read.model)
 summary(adol.beta.read.model)
 summary(adol.theta.read.model)
 summary(adol.gamma.read.model)
+
+sim_slopes(adol.beta.read.model, pred = Beta, modx = GORT.V....comp, johnson_neyman = FALSE)
 ```
 
 ## Vocabulary and Word Learning
@@ -113,6 +115,10 @@ anova(alpha.voc.model, beta.voc.model)
 summary(alpha.voc.model)
 summary(beta.voc.model)
 summary(theta.voc.model)
+
+sim_slopes(theta.voc.model, pred = Theta, modx = PPVT.4.SS, johnson_neyman = FALSE)
+sim_slopes(alpha.voc.model, pred = Alpha, modx = PPVT.4.SS, johnson_neyman = FALSE)
+
 ```
 
 ### Adolescents
@@ -141,6 +147,7 @@ est<-Effect("GORT.V....comp", partial.residuals=T, beta.read.model)
 plot(est, main="Reading and Word Learning Accuracy",
    xlab="GORT Comprehension", ylab="Word Learning Accuracy", pch=19)
 ```
+
 ### Adolescents have a significant relationship between Reading and WL
 ```{r}
 est<-Effect("GORT.V....comp", partial.residuals=T, adol.beta.read.model)
@@ -148,12 +155,18 @@ est<-Effect("GORT.V....comp", partial.residuals=T, adol.beta.read.model)
 plot(est, main="Reading and Word Learning Accuracy",
    xlab="GORT Comprehension", ylab="Word Learning Accuracy", pch=19)
 ```
+
 ### Adolescents have a significant relationship between Beta and WL
 ```{r}
 est<-Effect("Beta", partial.residuals=T, adol.beta.read.model)
 
 plot(est, main="Beta and Word Learning Accuracy",
    xlab="Beta Amplitude", ylab="Word Learning Accuracy", pch=19)
+```
+
+### In Adolescents, there is a moderately significant interaction between beta power and reading, predicting WL 
+```{r}
+interact_plot(adol.beta.read.model, pred = Beta, modx = GORT.V....comp, plot.points = TRUE)
 ```
 
 ## Vocabulary and Word Learning
@@ -164,6 +177,7 @@ est<-Effect("Alpha", partial.residuals=T, alpha.voc.model)
 plot(est, main="Alpha and Word Learning Accuracy",
    xlab="Alpha Amplitude", ylab="Word Learning Accuracy", pch=19)
 ```
+
 ### Children have a significant relationship between Vocab and WL
 ```{r}
 est<-Effect("PPVT.4.SS", partial.residuals=T, alpha.voc.model)
@@ -171,10 +185,12 @@ est<-Effect("PPVT.4.SS", partial.residuals=T, alpha.voc.model)
 plot(est, main="Vocabulary and Word Learning Accuracy",
    xlab="PPVT Standard Score", ylab="Word Learning Accuracy", pch=19)
 ```
+
 ### In Children, there is an interaction between theta power and vocabulary, predicting WL 
 ```{r}
 interact_plot(theta.voc.model, pred = Theta, modx = PPVT.4.SS, plot.points = TRUE)
 ```
+
 ## Adolescents have a significant relationship between Vocabulary and WL
 ```{r}
 est<-Effect("PPVT.4.SS", partial.residuals=T, adol.voc.gamma.model)
